@@ -2,6 +2,7 @@ package server;
 
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,9 +20,11 @@ public class Server {
             while (true) {
                 Socket clientSocket = serverSocket.accept();
 
-                PrintWriter out = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream(), "UTF-8"),
+                PrintWriter out = new PrintWriter(
+                        new OutputStreamWriter(clientSocket.getOutputStream(), StandardCharsets.UTF_8),
                         true);
-                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"));
+                BufferedReader in = new BufferedReader(
+                        new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8));
 
                 String username = nameUser(clientSocket, in, out);
 
@@ -43,28 +46,24 @@ public class Server {
             while ((message = in.readLine()) != null) {
                 System.out.println(GREEN + username + ": " + RESET + message);
 
+                if (message.equalsIgnoreCase("/exit")) {
+                    out.println("Desconectando do servidor.");
+                    break;
+                }
+
                 broadcast(message, username, out);
 
                 if (message.equalsIgnoreCase("/help")) {
-                    out.println("Para sair digite \"Help\"");
+                    out.println("Para sair digite \"/exit\"");
                 }
 
-                if (message.equalsIgnoreCase("/exit")) {
-                    break;
-                }
             }
         } catch (IOException e) {
-
-            broadcastExit(username, out);
+            e.printStackTrace();
 
         } finally {
             try {
-
-                synchronized (clientWriters) {
-                    clientWriters.remove(out);
-                }
-
-                clientSocket.close();
+                broadcastExit(username, out, clientSocket);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -81,22 +80,32 @@ public class Server {
         }
     }
 
-    private static void broadcastExit(String username, PrintWriter out) {
+    private static void broadcastExit(String username, PrintWriter out, Socket clientSocket) throws IOException {
         synchronized (clientWriters) {
             for (PrintWriter writer : clientWriters) {
                 if (writer != out) {
                     writer.println(CYAN + "Servidor: " + GREEN + username + RESET + " saiu do servidor");
                 }
             }
+            System.out.println(CYAN + "Servidor: " + GREEN + username + RESET + " saiu do servidor");
+            clientWriters.remove(out);
         }
+        // clientSocket.close();
     }
 
     private static String nameUser(Socket clientSocket, BufferedReader in, PrintWriter out) throws IOException {
-        System.out.println("Usuário " + clientSocket.getInetAddress() + "Conectado.");
-        out.println(CYAN + "Servidor: " + "Digite seu nome");
+        System.out.println("Usuário " + clientSocket.getInetAddress() + " Conectado.");
+        out.println(CYAN + "Servidor: " + RESET + "Digite seu nome");
         String username = in.readLine();
-        out.println(CYAN + "Servidor: " + "Bem vindo " + username);
-        out.println(CYAN + "Servidor: " + "Para mais informações digite \"Help\"");
+        out.println(CYAN + "Servidor: " + RESET + "Bem vindo " + username);
+        synchronized (clientWriters) {
+            for (PrintWriter writer : clientWriters) {
+                if (writer != out) {
+                    writer.println(CYAN + "Servidor: " + RESET + GREEN + username + RESET + " entrou no server");
+                }
+            }
+        }
+        out.println(CYAN + "Servidor: " + RESET + "Para mais informações digite \"/Help\"");
 
         return username;
     }
