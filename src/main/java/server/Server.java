@@ -6,65 +6,98 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Server {
+    public static final String RESET = "\u001B[0m"; // reseta a cor para o padrão
+    public static final String GREEN = "\u001B[32m";
+    public static final String CYAN = "\u001B[36m";
     private static final int PORT = 7777;
     private static List<PrintWriter> clientWriters = new ArrayList<>();
 
     public static void main(String[] args) {
-        System.out.println("Server roda aqui mano " + PORT + "...");
+
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            System.out.println("Server roda aqui mano " + PORT + "...");
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("Usuáiro " + clientSocket.getInetAddress() + "Conectado.");
 
-                // Create a PrintWriter and BufferedReader for this client
-                PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                PrintWriter out = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream(), "UTF-8"),
+                        true);
+                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"));
 
-                // Add this client to the list of clients
+                String username = nameUser(clientSocket, in, out);
+
                 synchronized (clientWriters) {
                     clientWriters.add(out);
                 }
 
-                // Handle this client in a new thread
-                new Thread(() -> UserHandler(clientSocket, in, out)).start();
+                new Thread(() -> userHandler(username, clientSocket, in, out)).start();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static void UserHandler(Socket clientSocket, BufferedReader in, PrintWriter out) {
+    private static void userHandler(String username, Socket clientSocket, BufferedReader in, PrintWriter out) {
         try {
-        	String Username;
+
             String message;
             while ((message = in.readLine()) != null) {
-                System.out.println("Message from client: " + message);
+                System.out.println(GREEN + username + ": " + RESET + message);
 
-                // Broadcast the message to all clients
-                synchronized (clientWriters) {
-                    for (PrintWriter writer : clientWriters) {
-                        if (writer != out) {
-                            writer.println("Eu aqui foda: " + message);
-                        }
-                    }
+                broadcast(message, username, out);
+
+                if (message.equalsIgnoreCase("/help")) {
+                    out.println("Para sair digite \"Help\"");
                 }
 
-                if (message.equalsIgnoreCase("bye")) {
+                if (message.equalsIgnoreCase("/exit")) {
                     break;
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+
+            broadcastExit(username, out);
+
         } finally {
             try {
-                // Remove this client from the list
+
                 synchronized (clientWriters) {
                     clientWriters.remove(out);
                 }
+
                 clientSocket.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+    }
+
+    private static void broadcast(String message, String username, PrintWriter out) {
+        synchronized (clientWriters) {
+            for (PrintWriter writer : clientWriters) {
+                if (writer != out) {
+                    writer.println(GREEN + username + ": " + RESET + message);
+                }
+            }
+        }
+    }
+
+    private static void broadcastExit(String username, PrintWriter out) {
+        synchronized (clientWriters) {
+            for (PrintWriter writer : clientWriters) {
+                if (writer != out) {
+                    writer.println(CYAN + "Servidor: " + GREEN + username + RESET + " saiu do servidor");
+                }
+            }
+        }
+    }
+
+    private static String nameUser(Socket clientSocket, BufferedReader in, PrintWriter out) throws IOException {
+        System.out.println("Usuário " + clientSocket.getInetAddress() + "Conectado.");
+        out.println(CYAN + "Servidor: " + "Digite seu nome");
+        String username = in.readLine();
+        out.println(CYAN + "Servidor: " + "Bem vindo " + username);
+        out.println(CYAN + "Servidor: " + "Para mais informações digite \"Help\"");
+
+        return username;
     }
 }
