@@ -10,40 +10,60 @@ public class Server {
     public static final String RESET = "\u001B[0m"; // reseta a cor para o padrão
     public static final String GREEN = "\u001B[32m";
     public static final String CYAN = "\u001B[36m";
+    public static final String SERVER_NAME = "Servidor: ";
     private static final int PORT = 7777;
     private static List<PrintWriter> clientWriters = new ArrayList<>();
+    private static boolean isRunning = true;
 
     public static void main(String[] args) {
+        startServerTimer(1 * 60 * 1000L);
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             System.out.println("Server roda aqui mano " + PORT + "...");
-            while (true) {
+            while (isRunning) {
                 Socket clientSocket = serverSocket.accept();
 
                 PrintWriter out = new PrintWriter(
-                        new OutputStreamWriter(clientSocket.getOutputStream(), StandardCharsets.UTF_8),
-                        true);
+                        new OutputStreamWriter(clientSocket.getOutputStream(), StandardCharsets.UTF_8), true);
                 BufferedReader in = new BufferedReader(
                         new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8));
 
-                String username = nameUser(clientSocket, in, out);
+                String username = promptUsername(clientSocket, in, out);
 
                 synchronized (clientWriters) {
                     clientWriters.add(out);
                 }
 
-                new Thread(() -> userHandler(username, clientSocket, in, out)).start();
+                new Thread(() -> handleUserMessages(username, in, out)).start();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static void userHandler(String username, Socket clientSocket, BufferedReader in, PrintWriter out) {
-        try {
+    private static void startServerTimer(long duration) {
+        new Thread(() -> {
+            try {
+                Thread.sleep(duration);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.err.println("Thread interrompida: " + e.getMessage());
+            }
+            broadcastMessage("O tempo de execução do servidor expirou. Encerrando...", "Servidor", null);
+            isRunning = false;
+            synchronized (clientWriters) {
+                for (PrintWriter writer : clientWriters) {
+                    writer.close();
+                }
+            }
+            System.exit(0);
+        }).start();
+    }
 
+    private static void handleUserMessages(String username, BufferedReader in, PrintWriter out) {
+        try {
             String message;
-            while ((message = in.readLine()) != null) {
+            while ((message = in.readLine()) != null && isRunning == true) {
                 System.out.println(GREEN + username + ": " + RESET + message);
 
                 if (message.equalsIgnoreCase("/exit")) {
@@ -51,26 +71,20 @@ public class Server {
                     break;
                 }
 
-                broadcast(message, username, out);
+                broadcastMessage(message, username, out);
 
                 if (message.equalsIgnoreCase("/help")) {
                     out.println("Para sair digite \"/exit\"");
                 }
-
             }
         } catch (IOException e) {
-            e.printStackTrace();
-
+            System.out.println(SERVER_NAME + "fechamento do serviço.");
         } finally {
-            try {
-                broadcastExit(username, out, clientSocket);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            notifyUserExit(username, out);
         }
     }
 
-    private static void broadcast(String message, String username, PrintWriter out) {
+    private static void broadcastMessage(String message, String username, PrintWriter out) {
         synchronized (clientWriters) {
             for (PrintWriter writer : clientWriters) {
                 if (writer != out) {
@@ -80,32 +94,31 @@ public class Server {
         }
     }
 
-    private static void broadcastExit(String username, PrintWriter out, Socket clientSocket) throws IOException {
+    private static void notifyUserExit(String username, PrintWriter out) {
         synchronized (clientWriters) {
             for (PrintWriter writer : clientWriters) {
                 if (writer != out) {
-                    writer.println(CYAN + "Servidor: " + GREEN + username + RESET + " saiu do servidor");
+                    writer.println(CYAN + SERVER_NAME + GREEN + username + RESET + " saiu do servidor");
                 }
             }
-            System.out.println(CYAN + "Servidor: " + GREEN + username + RESET + " saiu do servidor");
+            System.out.println(CYAN + SERVER_NAME + GREEN + username + RESET + " saiu do servidor");
             clientWriters.remove(out);
         }
-        // clientSocket.close();
     }
 
-    private static String nameUser(Socket clientSocket, BufferedReader in, PrintWriter out) throws IOException {
+    private static String promptUsername(Socket clientSocket, BufferedReader in, PrintWriter out) throws IOException {
         System.out.println("Usuário " + clientSocket.getInetAddress() + " Conectado.");
-        out.println(CYAN + "Servidor: " + RESET + "Digite seu nome");
+        out.println(CYAN + SERVER_NAME + RESET + "Digite seu nome");
         String username = in.readLine();
-        out.println(CYAN + "Servidor: " + RESET + "Bem vindo " + username);
+        out.println(CYAN + SERVER_NAME + RESET + "Bem vindo " + username);
         synchronized (clientWriters) {
             for (PrintWriter writer : clientWriters) {
                 if (writer != out) {
-                    writer.println(CYAN + "Servidor: " + RESET + GREEN + username + RESET + " entrou no server");
+                    writer.println(CYAN + SERVER_NAME + RESET + GREEN + username + RESET + " entrou no server");
                 }
             }
         }
-        out.println(CYAN + "Servidor: " + RESET + "Para mais informações digite \"/Help\"");
+        out.println(CYAN + SERVER_NAME + RESET + "Para mais informações digite \"/Help\"");
 
         return username;
     }
