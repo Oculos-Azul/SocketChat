@@ -67,16 +67,16 @@ public class Server {
                 while ((message = in.readLine()) != null && isRunning) {
                     System.out.println(GREEN + username + ": " + RESET + message);
 
-                    if (message.equalsIgnoreCase("/exit")) {
-                        out.println("Desconectando do servidor.");
-                        break;
+                    if (handleExitCommand(message, out)) {
+                    	break;
+                    	
+                    } else if (showAvailableCommands(message, out)) {
+                    	continue;
+                    	
                     }
 
                     broadcastMessage(message, username, out);
-
-                    if (message.equalsIgnoreCase("/help")) {
-                        out.println("Para sair digite \"/exit\"");
-                    }
+                    
                 }
             } catch (IOException e) {
                 System.out.println(SERVER_NAME + "fechamento do serviço.");
@@ -124,4 +124,22 @@ public class Server {
 
         return username;
     }
+    
+    private static boolean handleExitCommand(String message, PrintWriter out) {
+    	if (message.equalsIgnoreCase("/exit")) {
+            out.println("Desconectando do servidor.");
+            return true;
+        }
+    	return false;
+    }
+    
+    private static boolean showAvailableCommands(String message, PrintWriter out) {
+    	if (message.equalsIgnoreCase("/help")) {
+            out.println("Para sair digite \\\"/exit\\\"");
+            return true;
+        }
+    	return false;
+    }
+    
+    
 }
