@@ -34,7 +34,7 @@ public class Server {
                     clientWriters.add(out);
                 }
 
-                new Thread(() -> handleUserMessages(username, in, out)).start();
+                handleUserMessages(username, in, out);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -61,27 +61,29 @@ public class Server {
     }
 
     private static void handleUserMessages(String username, BufferedReader in, PrintWriter out) {
-        try {
-            String message;
-            while ((message = in.readLine()) != null && isRunning == true) {
-                System.out.println(GREEN + username + ": " + RESET + message);
+        new Thread(() -> {
+            try {
+                String message;
+                while ((message = in.readLine()) != null && isRunning) {
+                    System.out.println(GREEN + username + ": " + RESET + message);
 
-                if (message.equalsIgnoreCase("/exit")) {
-                    out.println("Desconectando do servidor.");
-                    break;
+                    if (message.equalsIgnoreCase("/exit")) {
+                        out.println("Desconectando do servidor.");
+                        break;
+                    }
+
+                    broadcastMessage(message, username, out);
+
+                    if (message.equalsIgnoreCase("/help")) {
+                        out.println("Para sair digite \"/exit\"");
+                    }
                 }
-
-                broadcastMessage(message, username, out);
-
-                if (message.equalsIgnoreCase("/help")) {
-                    out.println("Para sair digite \"/exit\"");
-                }
+            } catch (IOException e) {
+                System.out.println(SERVER_NAME + "fechamento do serviço.");
+            } finally {
+                notifyUserExit(username, out);
             }
-        } catch (IOException e) {
-            System.out.println(SERVER_NAME + "fechamento do serviço.");
-        } finally {
-            notifyUserExit(username, out);
-        }
+        }).start();
     }
 
     private static void broadcastMessage(String message, String username, PrintWriter out) {
