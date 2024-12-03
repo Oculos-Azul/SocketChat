@@ -7,8 +7,8 @@ import java.util.Scanner;
 
 public class User {
     private static Scanner scanner = new Scanner(System.in);
-    private static final String SERVER_ADDRESS_PADRAO = "192.168.208.101";
-    private static final int SERVER_PORT_PADRAO = 7777;
+    private static final String SERVER_ADDRESS_DEFAULT = "192.168.208.101";
+    private static final int SERVER_PORT_DEFAULT = 7777;
 
     public static void main(String[] args) {
         try {
@@ -32,7 +32,7 @@ public class User {
                 "Digite o IP do server desejado (Com pontuação), ou digite \"PADRÃO\" para conectar no server padrão");
         String response = scanner.nextLine();
         if (response.equalsIgnoreCase("PADRÃO") || response.equalsIgnoreCase("PADRAO")) {
-            return SERVER_ADDRESS_PADRAO;
+            return SERVER_ADDRESS_DEFAULT;
         }
         return response;
     }
@@ -42,7 +42,7 @@ public class User {
                 "Digite a Porta do server desejado, ou digite \"PADRÃO\" para conectar no server padrão");
         String response = scanner.nextLine();
         if (response.equalsIgnoreCase("PADRÃO") || response.equalsIgnoreCase("PADRAO")) {
-            return SERVER_PORT_PADRAO;
+            return SERVER_PORT_DEFAULT;
         }
         return Integer.parseInt(response);
     }
